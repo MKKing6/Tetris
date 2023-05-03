@@ -1,11 +1,7 @@
-var w = window.innerWidth;
-    var h = window.innerHeight;
-    if (w < h) {
-        var length = w * .7;
-    }
-    else {
-        var length = h * .7;
-    }
+var length;
+
+var leftGrid;
+var topGrid;
 
 function drawLine(ctx, begin, end, stroke = 'black', width = 1) {
     if (stroke) {
@@ -23,6 +19,16 @@ function drawLine(ctx, begin, end, stroke = 'black', width = 1) {
 }
 
 function drawGrid() {
+    var w = window.innerWidth;
+    var h = window.innerHeight;
+    if (w < h) {
+        length = w * .7;
+    }
+    else {
+        length = h * .7;
+    }
+    topGrid = h/2-length/2;
+    leftGrid = w/2-(length/2)/2;
 
     const canvas = document.getElementById("grid");
     const ctx = canvas.getContext("2d");
@@ -31,12 +37,10 @@ function drawGrid() {
     canvas.setAttribute('width', w);
     canvas.setAttribute('height', h);
     ctx.lineWidth = 1;
-    drawLine(ctx, [w/2-(length/2)/2, h/2-length/2], [w/2-(length/2)/2, h/2+length/2])
-    /*for (var i = 0; i < 10; i++) {
-        for (var j = 0; j < 20; j++) {
-            ctx.strokeRect(i*(length/20), j*(length/20), length/20 - 1, length/20 - 1);
-        }
-    }*/
+    drawLine(ctx, [leftGrid, topGrid], [leftGrid, topGrid + length]);
+    drawLine(ctx, [leftGrid, topGrid + length], [leftGrid + length/2, topGrid + length]);
+    drawLine(ctx, [leftGrid + length/2, topGrid + length], [leftGrid + length/2, topGrid]);
+    
 }
 
 onresize = (event) => drawGrid();
