@@ -1,4 +1,4 @@
-var length;
+var boxLength;
 
 var leftGrid;
 var topGrid;
@@ -22,13 +22,13 @@ function drawGrid() {
     var w = window.innerWidth;
     var h = window.innerHeight;
     if (w < h) {
-        length = w * .7;
+        boxLength = (w * .7)/20;
     }
     else {
-        length = h * .7;
+        boxLength = (h * .7)/20;
     }
-    topGrid = h/2-length/2;
-    leftGrid = w/2-(length/2)/2;
+    topGrid = h/2-(boxLength*10);
+    leftGrid = w/2-(boxLength*5);
 
     const canvas = document.getElementById("grid");
     const ctx = canvas.getContext("2d");
@@ -37,10 +37,9 @@ function drawGrid() {
     canvas.setAttribute('width', w);
     canvas.setAttribute('height', h);
     ctx.lineWidth = 1;
-    drawLine(ctx, [leftGrid, topGrid], [leftGrid, topGrid + length]);
-    drawLine(ctx, [leftGrid, topGrid + length], [leftGrid + length/2, topGrid + length]);
-    drawLine(ctx, [leftGrid + length/2, topGrid + length], [leftGrid + length/2, topGrid]);
-    
+    for (var r = 1; r <= 10; r++) {
+        drawLine(ctx, [leftGrid+boxLength*r, topGrid], [leftGrid+boxLength*r, topGrid+boxLength*20]);
+    }
 }
 
 onresize = (event) => drawGrid();
