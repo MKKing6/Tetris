@@ -5,7 +5,60 @@ var ctx;
 const imagePx = 30;
 
 const GRID_ROW = 10;
-const GRID_COLUMN = 20;
+const GRID_COLUMN = 40;
+
+const piece = {
+  "T": 0,
+  "J": 1,
+  "L": 2,
+  "S": 3,
+  "Z": 4,
+  "I": 5,
+  "O": 6
+};
+
+const rotate = [
+  [
+    [[0, 1], [-1, 0], [0, 0], [1, 0]],
+    [[1, 0], [0, 1], [0, 0], [0, -1]],
+    [[0, -1], [1, 0], [0, 0], [-1, 0]],
+    [[-1, 0], [0, -1], [0, 0], [0, 1]]
+  ],
+  [
+    [[-1, 1], [-1, 0], [0, 0], [1, 0]],
+    [[1, 1], [0, -1], [0, 0], [0, -1]],
+    [[1, -1], [1, 0], [0, 0], [-1, 0]],
+    [[-1, -1], [0, -1], [0, 0], [0, 1]]
+  ],
+  [
+    [[1, 1], [-1, 0], [0, 0], [1, 0]],
+    [[1, -1], [0, -1], [0, 0], [0, -1]],
+    [[-1, -1], [1, 0], [0, 0], [-1, 0]],
+    [[-1, 1], [0, -1], [0, 0], [0, 1]]
+  ],
+  [
+    [[1, 1], [0, 1], [0, 0], [-1, 0]],
+    [[1, -1], [1, 0], [0, 0], [0, 1]],
+    [[-1, -1], [0, -1], [0, 0], [1, 0]],
+    [[-1, 1], [-1, 0], [0, 0], [0, -1]]
+  ],
+  [
+    [[-1, 1], [0, 1], [0, 0], [1, 0]],
+    [[1, 1], [1, 0], [0, 0], [0, -1]],
+    [[1, -1], [0, -1], [0, 0], [-1, 0]],
+    [[-1, -1], [-1, 0], [0, 0], [0, 1]]
+  ],
+  [
+    [[-1, 0], [0, 0], [1, 0], [2, 0]],
+    [[1, 1], [1, 0], [1, -1], [1, -2]],
+    [[2, -1], [1, -1], [0, -1], [-1, -1]],
+    [[0, -2], [0, -1], [0, 0], [0, 1]]
+  ],
+  [
+    [[0, 1], [1, 1], [0, 0], [1, 0]]
+  ]
+]
+
 var boxLength;
 var leftGrid;
 var topGrid;
@@ -13,22 +66,23 @@ var grid = [];
 var currentX;
 var currentY;
 var currentColor;
+var currentState;
+var currentPiece;
+
 var currentDirection;
 
 var DAStimer;
 
 function init() {
-  let arr = [];
-  for (var r = 0; r < 10; r++) {
-    for (var c = 0; c < 40; c++) {
-      arr.push(0);
-    }
+  grid = Array(GRID_COLUMN);
+  for (var i = 0; i < GRID_COLUMN; i++) {
+    grid[i] = Array(GRID_ROW).fill(0);
   }
-  while(arr.length) grid.push(arr.splice(0,20));
   currentX = 4;
-  currentY = 20;
-  currentColor = 5; 
-  console.log(grid);
+  currentY = 21;
+  currentColor = 3; 
+  currentPiece = "O";
+  currentState = 0;
 }
 
 function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
@@ -79,8 +133,11 @@ function drawGrid() {
       }
     }
   }
+
   ctx.globalAlpha = 1;
-  ctx.drawImage(tiles, (imagePx + 1)*(currentColor-1), 0, imagePx, imagePx, leftGrid+currentX*boxLength, topGrid+(19-currentY)*boxLength, boxLength, boxLength);
+  for (var i = 0; i < 4; i++) {
+    ctx.drawImage(tiles, (imagePx + 1)*(currentColor-1), 0, imagePx, imagePx, leftGrid+(currentX+rotate[piece[currentPiece]][currentState][i][0])*boxLength, topGrid+(19-currentY-rotate[piece[currentPiece]][currentState][i][1])*boxLength, boxLength, boxLength);
+  }
   
   drawLine(ctx, [leftGrid - 2.5, topGrid], [leftGrid - 2.5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
   drawLine(ctx, [leftGrid - 5, topGrid + (boxLength)*20 + 2.5], [leftGrid + (boxLength)*10 + 5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
@@ -116,17 +173,65 @@ function DAS() {
 }
 
 function moveLeft() {
-  if (currentX != 0 && grid[currentX-1][currentY] == undefined) {
-    currentX--;
-    drawGrid();
-  }
+  canMove(currentX - 1, currentY);
 }
 
 function moveRight() {
-  if (currentX != GRID_ROW - 1 && grid[currentX+1][currentY] == undefined) {
-    currentX++;
-    drawGrid();
+  canMove(currentX + 1, currentY);
+}
+
+function canMove(newX, newY) {
+  for (var i = 0; i < 4; i++) {
+    if (newX + rotate[piece[currentPiece]][currentState][i][0] < 0 || newX + rotate[piece[currentPiece]][currentState][i][0] >= GRID_ROW || newY + rotate[piece[currentPiece]][currentState][i][1] < 0 || newY + rotate[piece[currentPiece]][currentState][i][1] >= GRID_COLUMN) {
+      return false;
+    }
+    if (grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]] != undefined) {
+      return false;
+    }
   }
+  currentX = newX;
+  currentY = newY;
+  drawGrid();
+  return true;
+}
+
+function canRotate(newState) {
+  if (currentPiece == "O") {
+    return true;
+  }
+  for (var i = 0; i < 4; i++) {
+    if (currentX + rotate[piece[currentPiece]][newState][i][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] >= GRID_COLUMN) {
+      return false;
+    }
+    if (grid[currentX + rotate[piece[currentPiece]][newState][i][0]][currentY + rotate[piece[currentPiece]][newState][i][1]] != undefined) {
+      return false;
+    }
+  }
+  currentState = newState;
+  drawGrid();
+  return true;
+}
+
+function clockwiseRotate() {
+  let newState;
+  if (currentState == 3) {
+    newState = 0;
+  }
+  else {
+    newState = currentState + 1;
+  }
+  canRotate(newState);
+}
+
+function counterclockwiseRotate() {
+  let newState;
+  if (currentState == 0) {
+    newState = 3;
+  }
+  else {
+    newState = currentState - 1;
+  }
+  canRotate(newState);
 }
   
 document.addEventListener('keydown', event => {
@@ -140,8 +245,13 @@ document.addEventListener('keydown', event => {
       currentDirection = "right";
       DAS();
       break;
+    case "KeyZ":
+      counterclockwiseRotate();
+      break;
+    case "KeyX":
+      clockwiseRotate();
+      break;
   }
-  
 })
 
 document.addEventListener("keyup", event => {
