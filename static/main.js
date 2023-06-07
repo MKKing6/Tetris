@@ -8,39 +8,45 @@ const GRID_ROW = 10;
 const GRID_COLUMN = 40;
 
 const piece = {
-  "T": 0,
-  "J": 1,
-  "L": 2,
-  "S": 3,
-  "Z": 4,
-  "I": 5,
-  "O": 6
+  "S": 0,
+  "L": 1,
+  "O": 2,
+  "Z": 3,
+  "I": 4,
+  "J": 5,
+  "T": 6,
 };
 
+const clockwiseSRS = [
+  [
+    [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+    [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]]
+  ],
+  [
+    [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]],
+    [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
+    [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
+    [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]]
+  ]
+]
+
 const rotate = [
-  [
-    [[0, 1], [-1, 0], [0, 0], [1, 0]],
-    [[1, 0], [0, 1], [0, 0], [0, -1]],
-    [[0, -1], [1, 0], [0, 0], [-1, 0]],
-    [[-1, 0], [0, -1], [0, 0], [0, 1]]
-  ],
-  [
-    [[-1, 1], [-1, 0], [0, 0], [1, 0]],
-    [[1, 1], [0, -1], [0, 0], [0, -1]],
-    [[1, -1], [1, 0], [0, 0], [-1, 0]],
-    [[-1, -1], [0, -1], [0, 0], [0, 1]]
-  ],
-  [
-    [[1, 1], [-1, 0], [0, 0], [1, 0]],
-    [[1, -1], [0, -1], [0, 0], [0, -1]],
-    [[-1, -1], [1, 0], [0, 0], [-1, 0]],
-    [[-1, 1], [0, -1], [0, 0], [0, 1]]
-  ],
   [
     [[1, 1], [0, 1], [0, 0], [-1, 0]],
     [[1, -1], [1, 0], [0, 0], [0, 1]],
     [[-1, -1], [0, -1], [0, 0], [1, 0]],
     [[-1, 1], [-1, 0], [0, 0], [0, -1]]
+  ],
+  [
+    [[1, 1], [-1, 0], [0, 0], [1, 0]],
+    [[1, -1], [0, 1], [0, 0], [0, -1]],
+    [[-1, -1], [1, 0], [0, 0], [-1, 0]],
+    [[-1, 1], [0, -1], [0, 0], [0, 1]]
+  ],
+  [
+    [[0, 1], [1, 1], [0, 0], [1, 0]]
   ],
   [
     [[-1, 1], [0, 1], [0, 0], [1, 0]],
@@ -55,7 +61,16 @@ const rotate = [
     [[0, -2], [0, -1], [0, 0], [0, 1]]
   ],
   [
-    [[0, 1], [1, 1], [0, 0], [1, 0]]
+    [[-1, 1], [-1, 0], [0, 0], [1, 0]],
+    [[1, 1], [0, 1], [0, 0], [0, -1]],
+    [[1, -1], [1, 0], [0, 0], [-1, 0]],
+    [[-1, -1], [0, -1], [0, 0], [0, 1]]
+  ],
+  [
+    [[0, 1], [-1, 0], [0, 0], [1, 0]],
+    [[1, 0], [0, 1], [0, 0], [0, -1]],
+    [[0, -1], [1, 0], [0, 0], [-1, 0]],
+    [[-1, 0], [0, -1], [0, 0], [0, 1]]
   ]
 ]
 
@@ -63,14 +78,14 @@ var boxLength;
 var leftGrid;
 var topGrid;
 var grid = [];
+
+var pieceQueue = [];
 var currentX;
 var currentY;
 var currentColor;
 var currentState;
 var currentPiece;
-
 var currentDirection;
-
 var DAStimer;
 
 function init() {
@@ -78,11 +93,18 @@ function init() {
   for (var i = 0; i < GRID_COLUMN; i++) {
     grid[i] = Array(GRID_ROW).fill(0);
   }
-  currentX = 4;
-  currentY = 21;
-  currentColor = 3; 
-  currentPiece = "O";
-  currentState = 0;
+  shuffleOrder();
+  console.log(pieceQueue);
+  nextPiece();
+}
+
+function shuffleOrder() {
+  var pieces = ['S', 'L', 'O', 'Z', 'I', 'J', 'T'];
+  for (var i = pieces.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+  }
+  pieceQueue = pieceQueue.concat(pieces);
 }
 
 function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
@@ -174,10 +196,12 @@ function DAS() {
 
 function moveLeft() {
   canMove(currentX - 1, currentY);
+  drawGrid();
 }
 
 function moveRight() {
   canMove(currentX + 1, currentY);
+  drawGrid();
 }
 
 function canMove(newX, newY) {
@@ -185,31 +209,64 @@ function canMove(newX, newY) {
     if (newX + rotate[piece[currentPiece]][currentState][i][0] < 0 || newX + rotate[piece[currentPiece]][currentState][i][0] >= GRID_ROW || newY + rotate[piece[currentPiece]][currentState][i][1] < 0 || newY + rotate[piece[currentPiece]][currentState][i][1] >= GRID_COLUMN) {
       return false;
     }
-    if (grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]] != undefined) {
+    if (grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]] != undefined && grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]] != 0) {
+      console.log(grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]])
       return false;
     }
   }
   currentX = newX;
   currentY = newY;
-  drawGrid();
   return true;
 }
 
-function canRotate(newState) {
+function canRotate(direction, newState) {
   if (currentPiece == "O") {
     return true;
   }
-  for (var i = 0; i < 4; i++) {
-    if (currentX + rotate[piece[currentPiece]][newState][i][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] >= GRID_COLUMN) {
-      return false;
+  for (var srs = 0; srs < 5; srs++) {
+    var rotatability = true;
+    var type = 0;
+    if (currentPiece == "I") {
+      type = 1;
     }
-    if (grid[currentX + rotate[piece[currentPiece]][newState][i][0]][currentY + rotate[piece[currentPiece]][newState][i][1]] != undefined) {
-      return false;
+    if (direction == "clockwise") {
+      for (var i = 0; i < 4; i++) {
+        if (currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] >= GRID_COLUMN) {
+          rotatability = false;
+          break;
+        }
+        if (grid[currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]] != undefined && grid[currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]] != 0) {
+          rotatability = false;
+          break;
+        }
+      }
+    }
+    else if (direction == "counterclockwise") {
+      for (var i = 0; i < 4; i++) {
+        if (currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1] >= GRID_COLUMN) {
+          rotatability = false;
+          break;
+        }
+        if (grid[currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1]] != undefined && grid[currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1]] != 0) {
+          rotatability = false;
+          break;
+        }
+      }
+    }
+    if (rotatability == true) {
+      if (direction == "clockwise") {
+        currentX = currentX + clockwiseSRS[type][currentState][srs][0];
+        currentY = currentY + clockwiseSRS[type][currentState][srs][1];
+      }
+      else if (direction == "counterclockwise") {
+        currentX = currentX + -clockwiseSRS[type][newState][srs][0];
+        currentY = currentY + -clockwiseSRS[type][newState][srs][1];
+      }
+      currentState = newState;
+      return true;
     }
   }
-  currentState = newState;
-  drawGrid();
-  return true;
+  return false;
 }
 
 function clockwiseRotate() {
@@ -220,7 +277,8 @@ function clockwiseRotate() {
   else {
     newState = currentState + 1;
   }
-  canRotate(newState);
+  canRotate("clockwise", newState);
+  drawGrid();
 }
 
 function counterclockwiseRotate() {
@@ -231,11 +289,42 @@ function counterclockwiseRotate() {
   else {
     newState = currentState - 1;
   }
-  canRotate(newState);
+  canRotate("counterclockwise", newState);
+  drawGrid();
+}
+
+function hardDrop() {
+  for (var y = currentY - 1; y >= 0; y--) {
+    if (!canMove(currentX, y) || y == 0) {
+      lock();
+      return;
+    }
+  }
+}
+
+function lock() {
+  for (var i = 0; i < 4; i++) {
+    grid[currentX + rotate[piece[currentPiece]][currentState][i][0]][currentY + rotate[piece[currentPiece]][currentState][i][1]] = currentColor;
+  }
+  if (pieceQueue.length == 5) {
+    shuffleOrder();
+  }
+  nextPiece();
+  drawGrid();
+}
+
+function nextPiece() {
+  currentX = 4;
+  currentY = 21;
+  currentState = 0;
+  currentPiece = pieceQueue[0];
+  currentColor = piece[pieceQueue[0]] + 1;
+  pieceQueue.shift();
 }
   
 document.addEventListener('keydown', event => {
   if (event.repeat) return;
+  console.log(event.code);
   switch (event.code) {
     case "ArrowLeft":
       currentDirection = "left";
@@ -250,6 +339,9 @@ document.addEventListener('keydown', event => {
       break;
     case "KeyX":
       clockwiseRotate();
+      break;
+    case "Space":
+      hardDrop();
       break;
   }
 })
