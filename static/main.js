@@ -1,11 +1,15 @@
 const tiles = new Image();
 tiles.src = "texture.png";
-var canvas;
-var ctx;
+let canvas;
+let ctx;
 const imagePx = 30;
 
 const GRID_ROW = 10;
 const GRID_COLUMN = 40;
+
+let DAStime = 120;
+let ARRtime = 0;
+let SDFMult = "infinity";
 
 const piece = {
   "S": 0,
@@ -34,10 +38,10 @@ const clockwiseSRS = [
 
 const rotate = [
   [
-    [[1, 1], [0, 1], [0, 0], [-1, 0]],
-    [[1, -1], [1, 0], [0, 0], [0, 1]],
-    [[-1, -1], [0, -1], [0, 0], [1, 0]],
-    [[-1, 1], [-1, 0], [0, 0], [0, -1]]
+    [[-1, 1], [0, 1], [0, 0], [1, 0]],
+    [[1, 1], [1, 0], [0, 0], [0, -1]],
+    [[1, -1], [0, -1], [0, 0], [-1, 0]],
+    [[-1, -1], [-1, 0], [0, 0], [0, 1]]
   ],
   [
     [[1, 1], [-1, 0], [0, 0], [1, 0]],
@@ -49,10 +53,10 @@ const rotate = [
     [[0, 1], [1, 1], [0, 0], [1, 0]]
   ],
   [
-    [[-1, 1], [0, 1], [0, 0], [1, 0]],
-    [[1, 1], [1, 0], [0, 0], [0, -1]],
-    [[1, -1], [0, -1], [0, 0], [-1, 0]],
-    [[-1, -1], [-1, 0], [0, 0], [0, 1]]
+    [[1, 1], [0, 1], [0, 0], [-1, 0]],
+    [[1, -1], [1, 0], [0, 0], [0, 1]],
+    [[-1, -1], [0, -1], [0, 0], [1, 0]],
+    [[-1, 1], [-1, 0], [0, 0], [0, -1]]
   ],
   [
     [[-1, 0], [0, 0], [1, 0], [2, 0]],
@@ -74,37 +78,32 @@ const rotate = [
   ]
 ]
 
-var boxLength;
-var leftGrid;
-var topGrid;
-var grid = [];
+let boxLength;
+let leftGrid;
+let topGrid;
+let grid = [];
 
-var pieceQueue = [];
-var currentX;
-var currentY;
-var currentColor;
-var currentState;
-var currentPiece;
-var currentDirection;
-var DAStimer;
+let pieceQueue = [];
+let currentX;
+let currentY;
+let currentColor;
+let currentState;
+let currentPiece;
+let currentDirection;
+
+let ghostX;
+let ghostY;
+
+let DAStimer;
+let SDFtimer;
 
 function init() {
-  grid = Array(GRID_COLUMN);
-  for (var i = 0; i < GRID_COLUMN; i++) {
+  grid = Array(GRID_ROW);
+  for (let i = 0; i < GRID_COLUMN; i++) {
     grid[i] = Array(GRID_ROW).fill(0);
   }
   shuffleOrder();
-  console.log(pieceQueue);
   nextPiece();
-}
-
-function shuffleOrder() {
-  var pieces = ['S', 'L', 'O', 'Z', 'I', 'J', 'T'];
-  for (var i = pieces.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
-    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
-  }
-  pieceQueue = pieceQueue.concat(pieces);
 }
 
 function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
@@ -127,8 +126,8 @@ function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
 }
 
 function drawGrid() {
-  var w = window.innerWidth;
-  var h = window.innerHeight;
+  let w = window.innerWidth;
+  let h = window.innerHeight;
   if (w < h) {
     boxLength = (w * .7)/20;
   }
@@ -141,24 +140,31 @@ function drawGrid() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   canvas.setAttribute('width', w);
   canvas.setAttribute('height', h);
-  for (var r = 0; r <= 10; r++) {
+  for (let r = 0; r <= 10; r++) {
     drawLine(ctx, [leftGrid+r*boxLength, topGrid], [leftGrid+r*boxLength, topGrid+20*boxLength], "white", 0.5);
   }
-  for (var c = 0; c <= 20; c++) {
+  for (let c = 0; c <= 20; c++) {
     drawLine(ctx, [leftGrid, topGrid+c*boxLength], [leftGrid+10*boxLength, topGrid+c*boxLength], "white", 0.5);
   }
-  for (var r = 0; r < 10; r++) {
-    for (var c = 0; c < 40; c++) {
-      if (grid[r][c] != 0) {
+  
+  for (let r = 0; r < 10; r++) {
+    for (let c = 0; c < 40; c++) {
+      if (grid[c][r] != undefined || grid[c][c] != 0) {
         ctx.globalAlpha = 1;
-        ctx.drawImage(tiles, (imagePx + 1)*(grid[r][c]-1), 0, imagePx, imagePx, leftGrid+r*boxLength, topGrid+(19-c)*boxLength, boxLength, boxLength);
+        ctx.drawImage(tiles, (imagePx + 1)*(grid[c][r]-1), 0, imagePx, imagePx, leftGrid+r*boxLength, topGrid-(c-19)*boxLength, boxLength, boxLength);
       }
     }
   }
-
+  
   ctx.globalAlpha = 1;
-  for (var i = 0; i < 4; i++) {
+  for (let i = 0; i < 4; i++) {
     ctx.drawImage(tiles, (imagePx + 1)*(currentColor-1), 0, imagePx, imagePx, leftGrid+(currentX+rotate[piece[currentPiece]][currentState][i][0])*boxLength, topGrid+(19-currentY-rotate[piece[currentPiece]][currentState][i][1])*boxLength, boxLength, boxLength);
+  }
+
+  ghostPiece();
+  ctx.globalAlpha = .5;
+  for (let i = 0; i < 4; i++) {
+    ctx.drawImage(tiles, (imagePx + 1)*(currentColor-1), 0, imagePx, imagePx, leftGrid+(ghostX+rotate[piece[currentPiece]][currentState][i][0])*boxLength, topGrid+(19-ghostY-rotate[piece[currentPiece]][currentState][i][1])*boxLength, boxLength, boxLength);
   }
   
   drawLine(ctx, [leftGrid - 2.5, topGrid], [leftGrid - 2.5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
@@ -166,11 +172,23 @@ function drawGrid() {
   drawLine(ctx, [leftGrid + (boxLength)*10 + 2.5, topGrid + (boxLength)*20 + 2.5], [leftGrid + (boxLength)*10 + 2.5, topGrid], "white", 1, 5);
 }
 
-onresize = () => drawGrid();
+onresize = () => {
+  drawGrid();  
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   canvas = document.getElementById("grid");
   ctx = canvas.getContext("2d");
 })
+
+function shuffleOrder() {
+  let pieces = ['S', 'L', 'O', 'Z', 'I', 'J', 'T'];
+  for (let i = pieces.length - 1; i > 0; i--) {
+    let j = Math.floor(Math.random() * (i + 1));
+    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+  }
+  pieceQueue = pieceQueue.concat(pieces);
+}
 
 function DAS() {
   clearInterval(DAStimer);
@@ -180,8 +198,8 @@ function DAS() {
       moveLeft();
       DAStimer = setInterval(() => {
         moveLeft();
-      }, 0)
-    }, 100)
+      }, ARRtime)
+    }, DAStime)
   }
   if (currentDirection == "right") {
     moveRight();
@@ -189,33 +207,34 @@ function DAS() {
       moveRight();
       DAStimer = setInterval(() => {
         moveRight();
-      }, 0)
-    }, 100)
+      }, ARRtime)
+    }, DAStime)
   }
 }
 
 function moveLeft() {
-  canMove(currentX - 1, currentY);
+  if (canMove(currentX - 1, currentY)) {
+    currentX--;
+  }
   drawGrid();
 }
 
 function moveRight() {
-  canMove(currentX + 1, currentY);
+  if (canMove(currentX + 1, currentY)) {
+    currentX++;
+  }
   drawGrid();
 }
 
 function canMove(newX, newY) {
-  for (var i = 0; i < 4; i++) {
+  for (let i = 0; i < 4; i++) {
     if (newX + rotate[piece[currentPiece]][currentState][i][0] < 0 || newX + rotate[piece[currentPiece]][currentState][i][0] >= GRID_ROW || newY + rotate[piece[currentPiece]][currentState][i][1] < 0 || newY + rotate[piece[currentPiece]][currentState][i][1] >= GRID_COLUMN) {
       return false;
     }
-    if (grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]] != undefined && grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]] != 0) {
-      console.log(grid[newX + rotate[piece[currentPiece]][currentState][i][0]][newY + rotate[piece[currentPiece]][currentState][i][1]])
+    if (grid[newY + rotate[piece[currentPiece]][currentState][i][1]][newX + rotate[piece[currentPiece]][currentState][i][0]] != 0) {
       return false;
     }
   }
-  currentX = newX;
-  currentY = newY;
   return true;
 }
 
@@ -223,31 +242,31 @@ function canRotate(direction, newState) {
   if (currentPiece == "O") {
     return true;
   }
-  for (var srs = 0; srs < 5; srs++) {
-    var rotatability = true;
-    var type = 0;
+  for (let srs = 0; srs < 5; srs++) {
+    let rotatability = true;
+    let type = 0;
     if (currentPiece == "I") {
       type = 1;
     }
     if (direction == "clockwise") {
-      for (var i = 0; i < 4; i++) {
+      for (let i = 0; i < 4; i++) {
         if (currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] >= GRID_COLUMN) {
           rotatability = false;
           break;
         }
-        if (grid[currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]] != undefined && grid[currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]] != 0) {
+        if (grid[currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]][currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]] != 0) {
           rotatability = false;
           break;
         }
       }
     }
     else if (direction == "counterclockwise") {
-      for (var i = 0; i < 4; i++) {
+      for (let i = 0; i < 4; i++) {
         if (currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1] >= GRID_COLUMN) {
           rotatability = false;
           break;
         }
-        if (grid[currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1]] != undefined && grid[currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0]][currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1]] != 0) {
+        if (grid[currentY + rotate[piece[currentPiece]][newState][i][1] + -clockwiseSRS[type][newState][srs][1]][currentX + rotate[piece[currentPiece]][newState][i][0] + -clockwiseSRS[type][newState][srs][0]] != 0) {
           rotatability = false;
           break;
         }
@@ -294,23 +313,103 @@ function counterclockwiseRotate() {
 }
 
 function hardDrop() {
-  for (var y = currentY - 1; y >= 0; y--) {
-    if (!canMove(currentX, y) || y == 0) {
+  for (let y = currentY; y >= 0; y--) {
+    if (canMove(currentX, y)) {
+      currentY = y;
+      if (y == 0) {
+        lock();
+        return;
+      }
+    }
+    else {
       lock();
       return;
     }
   }
 }
 
+function ghostPiece() {
+  for (let y = currentY; y >= 0; y--) {
+    if (canMove(currentX, y)) {
+      ghostX = currentX;
+      ghostY = y;
+    }
+    else {
+      return;
+    }
+  }
+}
+
+function softDrop() {
+  if (SDFMult == "infinity") {
+    for (let y = currentY; y >= 0; y--) {
+      if (canMove(currentX, y)) {
+        currentY = y;
+        if (y == 0) {
+          drawGrid();
+        }
+      }
+      else {
+        drawGrid();
+        return;
+      }
+    }
+  }
+  else {
+    clearInterval(SDFtimer);
+    SDFtimer = setInterval(() => {
+      if (!canMove(currentX, currentY - 1)) {
+        if (SDFtimer == null) {
+          removeInterval(SDFtimer);
+        }
+      }
+      else {
+        currentY--;
+      }
+      drawGrid();
+    }, 500/SDFMult);
+  }
+}
+
 function lock() {
-  for (var i = 0; i < 4; i++) {
-    grid[currentX + rotate[piece[currentPiece]][currentState][i][0]][currentY + rotate[piece[currentPiece]][currentState][i][1]] = currentColor;
+  for (let i = 0; i < 4; i++) {
+    grid[currentY + rotate[piece[currentPiece]][currentState][i][1]][currentX + rotate[piece[currentPiece]][currentState][i][0]] = currentColor;
   }
   if (pieceQueue.length == 5) {
     shuffleOrder();
   }
   nextPiece();
+  clear();
   drawGrid();
+}
+
+function clear() {
+  let linesToClear = [];
+  let clearLines = false;
+  for (let c = 0; c < 40; c++) {
+    let clearLine = true;
+    for (let r = 0; r < 10; r++) {
+      if (grid[c][r] == 0 || grid[c][r] == undefined) {
+        clearLine = false;
+        break;
+      }
+    }
+    if(clearLine == true) {
+      linesToClear.push(c);
+      clearLines = true;
+    }
+  }
+  if (clearLines == true) {
+    let linesCleared = 0;
+    for (let i = 0; i < linesToClear.length; i++) {
+      let line = linesToClear[i] - linesCleared;
+      grid.splice(line, 1);
+      linesCleared++;
+    }
+    for (let i = 0; i <= linesToClear.length; i++) {
+      grid.push(Array(GRID_ROW).fill(0));
+    }
+  }
 }
 
 function nextPiece() {
@@ -324,7 +423,6 @@ function nextPiece() {
   
 document.addEventListener('keydown', event => {
   if (event.repeat) return;
-  console.log(event.code);
   switch (event.code) {
     case "ArrowLeft":
       currentDirection = "left";
@@ -340,8 +438,14 @@ document.addEventListener('keydown', event => {
     case "KeyX":
       clockwiseRotate();
       break;
+    case "ArrowUp":
+      clockwiseRotate();
+      break;
     case "Space":
       hardDrop();
+      break;
+    case "ArrowDown":
+      softDrop();
       break;
   }
 })
@@ -359,6 +463,9 @@ document.addEventListener("keyup", event => {
         clearInterval(DAStimer);
         currentDirection = undefined;
       }
+      break;
+    case "ArrowDown":
+      clearInterval(SDFtimer);
       break;
   }
 })
