@@ -1,21 +1,21 @@
-const tiles = new Image();
+let tiles = new Image();
 tiles.src = "texture.png";
-let canvas;
-let ctx;
-const imagePx = 30;
+let imagePx = 30;
 
 const GRID_ROW = 10;
 const GRID_COLUMN = 40;
+
+let inGame = false;
 
 let DAStime = 120;
 let ARRtime = 0;
 let SDFMult = "infinity";
 
 const piece = {
-  "S": 0,
+  "Z": 0,
   "L": 1,
   "O": 2,
-  "Z": 3,
+  "S": 3,
   "I": 4,
   "J": 5,
   "T": 6,
@@ -106,6 +106,22 @@ function init() {
   nextPiece();
 }
 
+function toggleScreen(id, toggle) {
+  let element = document.getElementById(id);
+  let display = (toggle) ? 'block' : 'none';
+  element.style.display = display;
+}
+
+function startGame() {
+  canvas = document.getElementById("grid");
+  ctx = canvas.getContext("2d");
+  inGame = true;
+  init();
+  tiles.onload = function () {
+    drawGrid();    
+  };
+}
+
 function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
   if (opacity) {
     ctx.globalAlpha = opacity;
@@ -173,7 +189,9 @@ function drawGrid() {
 }
 
 onresize = () => {
-  drawGrid();  
+  if (inGame) {
+    drawGrid();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -182,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 })
 
 function shuffleOrder() {
-  let pieces = ['S', 'L', 'O', 'Z', 'I', 'J', 'T'];
+  let pieces = ['Z', 'L', 'O', 'S', 'I', 'J', 'T'];
   for (let i = pieces.length - 1; i > 0; i--) {
     let j = Math.floor(Math.random() * (i + 1));
     [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
@@ -422,6 +440,9 @@ function nextPiece() {
 }
   
 document.addEventListener('keydown', event => {
+  if (inGame == false) {
+    return;
+  }
   if (event.repeat) return;
   switch (event.code) {
     case "ArrowLeft":
@@ -451,6 +472,9 @@ document.addEventListener('keydown', event => {
 })
 
 document.addEventListener("keyup", event => {
+  if (inGame == false) {
+    return;
+  }
   switch (event.code) {
     case "ArrowLeft":
       if (currentDirection == "left") {
