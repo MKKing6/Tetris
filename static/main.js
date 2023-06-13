@@ -1,5 +1,4 @@
-let tiles = new Image();
-tiles.src = "texture.png";
+let tiles;
 let imagePx = 30;
 
 const GRID_ROW = 10;
@@ -7,9 +6,9 @@ const GRID_COLUMN = 40;
 
 let inGame = false;
 
-let DAStime = 120;
-let ARRtime = 0;
-let SDFMult = "infinity";
+let DAStime = 300; 
+let ARRtime = 10;
+let SDFMult = 20;
 
 const piece = {
   "Z": 0,
@@ -21,6 +20,7 @@ const piece = {
   "T": 6,
 };
 
+//srs table
 const clockwiseSRS = [
   [
     [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
@@ -36,6 +36,7 @@ const clockwiseSRS = [
   ]
 ]
 
+//rotation table
 const rotate = [
   [
     [[-1, 1], [0, 1], [0, 0], [1, 0]],
@@ -96,6 +97,10 @@ let ghostY;
 
 let DAStimer;
 let SDFtimer;
+let lockTime;
+let dropTime;
+
+let lockCount;
 
 function init() {
   grid = Array(GRID_ROW);
@@ -112,7 +117,13 @@ function toggleScreen(id, toggle) {
   element.style.display = display;
 }
 
+//start game loop
 function startGame() {
+  console.log("test");
+  toggleScreen('startScreen', false);
+  toggleScreen('grid', true);
+  tiles = new Image();
+  tiles.src = "texture.png";
   canvas = document.getElementById("grid");
   ctx = canvas.getContext("2d");
   inGame = true;
@@ -122,6 +133,14 @@ function startGame() {
   };
 }
 
+//end game loop
+function gameOver() {
+  inGame = false;
+  toggleScreen('startScreen', true);
+  toggleScreen('grid', false);
+}
+
+//draw a line in canvas
 function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
   if (opacity) {
     ctx.globalAlpha = opacity;
@@ -141,7 +160,9 @@ function drawLine(ctx, begin, end, stroke = "black", opacity = 1, width = 1) {
   ctx.stroke();
 }
 
+//draws grid
 function drawGrid() {
+  //find box length and where the top corner of grid is
   let w = window.innerWidth;
   let h = window.innerHeight;
   if (w < h) {
@@ -152,7 +173,8 @@ function drawGrid() {
   }
   topGrid = h/2-((boxLength+1)*10);
   leftGrid = w/2-((boxLength+1)*5);
-  
+
+  //draws the grid lines
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   canvas.setAttribute('width', w);
   canvas.setAttribute('height', h);
@@ -162,7 +184,8 @@ function drawGrid() {
   for (let c = 0; c <= 20; c++) {
     drawLine(ctx, [leftGrid, topGrid+c*boxLength], [leftGrid+10*boxLength, topGrid+c*boxLength], "white", 0.5);
   }
-  
+
+  //draws the tiles that were placed
   for (let r = 0; r < 10; r++) {
     for (let c = 0; c < 40; c++) {
       if (grid[c][r] != undefined || grid[c][c] != 0) {
@@ -171,34 +194,34 @@ function drawGrid() {
       }
     }
   }
-  
+
+  //draws current piece
   ctx.globalAlpha = 1;
   for (let i = 0; i < 4; i++) {
     ctx.drawImage(tiles, (imagePx + 1)*(currentColor-1), 0, imagePx, imagePx, leftGrid+(currentX+rotate[piece[currentPiece]][currentState][i][0])*boxLength, topGrid+(19-currentY-rotate[piece[currentPiece]][currentState][i][1])*boxLength, boxLength, boxLength);
   }
 
+  //draws ghost piece
   ghostPiece();
   ctx.globalAlpha = .5;
   for (let i = 0; i < 4; i++) {
     ctx.drawImage(tiles, (imagePx + 1)*(currentColor-1), 0, imagePx, imagePx, leftGrid+(ghostX+rotate[piece[currentPiece]][currentState][i][0])*boxLength, topGrid+(19-ghostY-rotate[piece[currentPiece]][currentState][i][1])*boxLength, boxLength, boxLength);
   }
-  
+
+  //draws border
   drawLine(ctx, [leftGrid - 2.5, topGrid], [leftGrid - 2.5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
   drawLine(ctx, [leftGrid - 5, topGrid + (boxLength)*20 + 2.5], [leftGrid + (boxLength)*10 + 5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
   drawLine(ctx, [leftGrid + (boxLength)*10 + 2.5, topGrid + (boxLength)*20 + 2.5], [leftGrid + (boxLength)*10 + 2.5, topGrid], "white", 1, 5);
 }
 
+//on window resize draw grid
 onresize = () => {
   if (inGame) {
     drawGrid();
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  canvas = document.getElementById("grid");
-  ctx = canvas.getContext("2d");
-})
-
+//shuffle order of pieces then add to array
 function shuffleOrder() {
   let pieces = ['Z', 'L', 'O', 'S', 'I', 'J', 'T'];
   for (let i = pieces.length - 1; i > 0; i--) {
@@ -208,6 +231,7 @@ function shuffleOrder() {
   pieceQueue = pieceQueue.concat(pieces);
 }
 
+//Dely Auto Shift
 function DAS() {
   clearInterval(DAStimer);
   if (currentDirection == "left") {
@@ -233,6 +257,7 @@ function DAS() {
 function moveLeft() {
   if (canMove(currentX - 1, currentY)) {
     currentX--;
+    autolockCheck();
   }
   drawGrid();
 }
@@ -240,8 +265,18 @@ function moveLeft() {
 function moveRight() {
   if (canMove(currentX + 1, currentY)) {
     currentX++;
+    autolockCheck();
   }
   drawGrid();
+}
+
+function autolockCheck() {
+  if (!canMove(currentX, currentY - 1)) {
+    clearInterval(lockTime);
+    lockTime = null;
+    lockCount++;
+    lockTimer();
+  }
 }
 
 function canMove(newX, newY) {
@@ -269,10 +304,12 @@ function canRotate(direction, newState) {
     if (direction == "clockwise") {
       for (let i = 0; i < 4; i++) {
         if (currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] >= GRID_COLUMN) {
+          console.log("test1");
           rotatability = false;
           break;
         }
         if (grid[currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]][currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]] != 0) {
+          console.log("test2");
           rotatability = false;
           break;
         }
@@ -316,6 +353,7 @@ function clockwiseRotate() {
   }
   canRotate("clockwise", newState);
   drawGrid();
+  autolockCheck();
 }
 
 function counterclockwiseRotate() {
@@ -369,6 +407,7 @@ function softDrop() {
       }
       else {
         drawGrid();
+        lockTimer();
         return;
       }
     }
@@ -377,8 +416,8 @@ function softDrop() {
     clearInterval(SDFtimer);
     SDFtimer = setInterval(() => {
       if (!canMove(currentX, currentY - 1)) {
-        if (SDFtimer == null) {
-          removeInterval(SDFtimer);
+        if(!lockTime) {
+          lockTimer();
         }
       }
       else {
@@ -390,15 +429,33 @@ function softDrop() {
 }
 
 function lock() {
+  clearInterval(lockTime);
+  lockTime = null;
+  let overGrid = true;
+  for (let i = 0; i < 4; i++) {
+    if (currentY + rotate[piece[currentPiece]][currentState][i][1] < 20) {
+      overGrid = false;
+      break;
+    }
+  }
+  if (overGrid == true) {
+    gameOver();
+  }
   for (let i = 0; i < 4; i++) {
     grid[currentY + rotate[piece[currentPiece]][currentState][i][1]][currentX + rotate[piece[currentPiece]][currentState][i][0]] = currentColor;
   }
   if (pieceQueue.length == 5) {
     shuffleOrder();
   }
-  nextPiece();
   clear();
+  nextPiece();
   drawGrid();
+}
+
+function lockTimer() {
+  lockTime = setInterval(() => {
+    lock();
+  }, 500)
 }
 
 function clear() {
@@ -436,6 +493,10 @@ function nextPiece() {
   currentState = 0;
   currentPiece = pieceQueue[0];
   currentColor = piece[pieceQueue[0]] + 1;
+  if (!canMove(4, 21)) {
+    gameOver();
+  }
+  lockCount = 0;
   pieceQueue.shift();
 }
   
