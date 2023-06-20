@@ -101,6 +101,7 @@ let lockTime;
 let dropTime;
 
 let lockCount;
+let lowestY;
 
 function init() {
   grid = Array(GRID_ROW);
@@ -119,7 +120,6 @@ function toggleScreen(id, toggle) {
 
 //start game loop
 function startGame() {
-  console.log("test");
   toggleScreen('startScreen', false);
   toggleScreen('grid', true);
   tiles = new Image();
@@ -257,6 +257,7 @@ function DAS() {
 function moveLeft() {
   if (canMove(currentX - 1, currentY)) {
     currentX--;
+    lowestCheck();
     autolockCheck();
   }
   drawGrid();
@@ -265,17 +266,30 @@ function moveLeft() {
 function moveRight() {
   if (canMove(currentX + 1, currentY)) {
     currentX++;
+    lowestCheck();
     autolockCheck();
   }
   drawGrid();
 }
 
 function autolockCheck() {
+  clearInterval(lockTime);
+  lockTime = null;
   if (!canMove(currentX, currentY - 1)) {
-    clearInterval(lockTime);
-    lockTime = null;
-    lockCount++;
-    lockTimer();
+    if (lockCount < 15) {
+      lockTimer();
+    }
+    else {
+      lock();
+    }
+  }
+}
+
+function lowestCheck() {
+  lockCount++;
+  if (currentY < lowestY) {
+    lowestY = currentY;
+    lockCount = 0;
   }
 }
 
@@ -304,12 +318,10 @@ function canRotate(direction, newState) {
     if (direction == "clockwise") {
       for (let i = 0; i < 4; i++) {
         if (currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] < 0 || currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0] >= GRID_ROW || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] < 0 || currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1] >= GRID_COLUMN) {
-          console.log("test1");
           rotatability = false;
           break;
         }
         if (grid[currentY + rotate[piece[currentPiece]][newState][i][1] + clockwiseSRS[type][currentState][srs][1]][currentX + rotate[piece[currentPiece]][newState][i][0] + clockwiseSRS[type][currentState][srs][0]] != 0) {
-          console.log("test2");
           rotatability = false;
           break;
         }
@@ -353,6 +365,7 @@ function clockwiseRotate() {
   }
   canRotate("clockwise", newState);
   drawGrid();
+  lowestCheck();
   autolockCheck();
 }
 
@@ -366,6 +379,8 @@ function counterclockwiseRotate() {
   }
   canRotate("counterclockwise", newState);
   drawGrid();
+  lowestCheck();
+  autolockCheck();
 }
 
 function hardDrop() {
@@ -407,7 +422,7 @@ function softDrop() {
       }
       else {
         drawGrid();
-        lockTimer();
+        autolockCheck();
         return;
       }
     }
@@ -416,9 +431,7 @@ function softDrop() {
     clearInterval(SDFtimer);
     SDFtimer = setInterval(() => {
       if (!canMove(currentX, currentY - 1)) {
-        if(!lockTime) {
-          lockTimer();
-        }
+        autolockCheck();
       }
       else {
         currentY--;
@@ -497,6 +510,7 @@ function nextPiece() {
     gameOver();
   }
   lockCount = 0;
+  lowestY = 21;
   pieceQueue.shift();
 }
   
