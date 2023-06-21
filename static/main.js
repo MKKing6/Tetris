@@ -9,6 +9,8 @@ let inGame = false;
 let DAStime = 300; 
 let ARRtime = 10;
 let SDFMult = 20;
+let dropSpeed = 2000;
+let lockSpeed = 500;
 
 const piece = {
   "Z": 0,
@@ -276,11 +278,18 @@ function autolockCheck() {
   clearInterval(lockTime);
   lockTime = null;
   if (!canMove(currentX, currentY - 1)) {
+    clearInterval(dropTime);
+    dropTime = null;
     if (lockCount < 15) {
       lockTimer();
     }
     else {
       lock();
+    }
+  }
+  else {
+    if (!dropTime) {
+      dropTimer();
     }
   }
 }
@@ -428,22 +437,28 @@ function softDrop() {
     }
   }
   else {
+    dropOne();
+    drawGrid();
     clearInterval(SDFtimer);
     SDFtimer = setInterval(() => {
-      if (!canMove(currentX, currentY - 1)) {
-        autolockCheck();
-      }
-      else {
-        currentY--;
-      }
+      dropOne();
       drawGrid();
-    }, 500/SDFMult);
+    }, dropSpeed/SDFMult);
   }
+}
+
+function dropOne() {
+  if (canMove(currentX, currentY - 1)) {
+    currentY--;
+  }
+  autolockCheck();
 }
 
 function lock() {
   clearInterval(lockTime);
   lockTime = null;
+  clearInterval(dropTime);
+  dropTime = null;
   let overGrid = true;
   for (let i = 0; i < 4; i++) {
     if (currentY + rotate[piece[currentPiece]][currentState][i][1] < 20) {
@@ -468,7 +483,14 @@ function lock() {
 function lockTimer() {
   lockTime = setInterval(() => {
     lock();
-  }, 500)
+  }, lockSpeed)
+}
+
+function dropTimer() {
+  dropTime = setInterval(() => {
+    dropOne();
+    drawGrid();
+  }, dropSpeed)
 }
 
 function clear() {
@@ -511,6 +533,7 @@ function nextPiece() {
   }
   lockCount = 0;
   lowestY = 21;
+  dropOne();
   pieceQueue.shift();
 }
   
