@@ -119,6 +119,8 @@ function init() {
   for (let i = 0; i < GRID_COLUMN; i++) {
     grid[i] = Array(GRID_ROW).fill(0);
   }
+  holdPiece = null;
+  holdColor = null;
   shuffleOrder();
   getNextPiece = true;
   nextPiece();
