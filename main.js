@@ -6,9 +6,9 @@ const GRID_COLUMN = 40;
 
 let inGame = false;
 
-let DAStime = 100; 
-let ARRtime = 0;
-let SDFMult = "infinity";
+let DAStime = 300; 
+let ARRtime = 10;
+let SDFMult = 20;
 let dropSpeed = 2000;
 let lockSpeed = 500;
 
@@ -94,11 +94,6 @@ let currentState;
 let currentPiece;
 let currentDirection;
 
-let holdPiece;
-let holdColor;
-let canHold;
-let getNextPiece;
-
 let ghostX;
 let ghostY;
 
@@ -111,10 +106,6 @@ let lockCount;
 let lowestY;
 
 function init() {
-  clearInterval(lockTime);
-  lockTime = null;
-  clearInterval(dropTime);
-  dropTime = null;
   grid = Array(GRID_ROW);
   for (let i = 0; i < GRID_COLUMN; i++) {
     grid[i] = Array(GRID_ROW).fill(0);
@@ -122,7 +113,6 @@ function init() {
   holdPiece = null;
   holdColor = null;
   shuffleOrder();
-  getNextPiece = true;
   nextPiece();
 }
 
@@ -180,10 +170,10 @@ function drawGrid() {
   let w = window.innerWidth;
   let h = window.innerHeight;
   if (w < h) {
-    boxLength = (w * .7)/(GRID_COLUMN/2);
+    boxLength = (w * .7)/20;
   }
   else {
-    boxLength = (h * .7)/(GRID_COLUMN/2);
+    boxLength = (h * .7)/20;
   }
   topGrid = h/2-((boxLength+1)*10);
   leftGrid = w/2-((boxLength+1)*5);
@@ -193,10 +183,10 @@ function drawGrid() {
   canvas.setAttribute('width', w);
   canvas.setAttribute('height', h);
   for (let r = 0; r <= 10; r++) {
-    drawLine(ctx, [leftGrid+r*boxLength, topGrid], [leftGrid+r*boxLength, topGrid+(GRID_COLUMN/2)*boxLength], "white", 0.5);
+    drawLine(ctx, [leftGrid+r*boxLength, topGrid], [leftGrid+r*boxLength, topGrid+20*boxLength], "white", 0.5);
   }
   for (let c = 0; c <= 20; c++) {
-    drawLine(ctx, [leftGrid, topGrid+c*boxLength], [leftGrid+GRID_ROW*boxLength, topGrid+c*boxLength], "white", 0.5);
+    drawLine(ctx, [leftGrid, topGrid+c*boxLength], [leftGrid+10*boxLength, topGrid+c*boxLength], "white", 0.5);
   }
 
   //draws the tiles that were placed
@@ -223,34 +213,9 @@ function drawGrid() {
   }
 
   //draws border
-  drawLine(ctx, [leftGrid - 2.5, topGrid], [leftGrid - 2.5, topGrid + boxLength * GRID_COLUMN/2 + 2.5], "white", 1, 5);
-  drawLine(ctx, [leftGrid - 5, topGrid + boxLength * GRID_COLUMN/2 + 2.5], [leftGrid + boxLength * GRID_ROW + 5, topGrid + boxLength * GRID_COLUMN/2 + 2.5], "white", 1, 5);
-  drawLine(ctx, [leftGrid + boxLength * GRID_ROW + 2.5, topGrid + boxLength * GRID_COLUMN/2 + 2.5], [leftGrid + boxLength * GRID_ROW + 2.5, topGrid], "white", 1, 5);
-
-  //draws hold box
-  ctx.fillStyle = "white";
-  ctx.fillRect(leftGrid - boxLength * (GRID_ROW/2) - 5, topGrid, boxLength * (GRID_ROW/2), boxLength * 1.5);
-  ctx.font = "800 " + boxLength + "px Helvetica";
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgb(31, 31, 31)";
-  ctx.fillText("HOLD", leftGrid - boxLength * (GRID_ROW/4), topGrid + boxLength * (1.5/2) + boxLength / 2);
-  drawLine(ctx, [leftGrid - boxLength * (GRID_ROW/2) - 2.5, topGrid + boxLength * 1.5 - 2.5], [leftGrid - boxLength * (GRID_ROW/2) - 2.5, topGrid + boxLength * (GRID_ROW/2) + 2.5], "white", 1, 5);
-  drawLine(ctx, [leftGrid - boxLength * (GRID_ROW/2) - 2.5, topGrid + boxLength * (GRID_ROW/2)], [leftGrid, topGrid + boxLength * (GRID_ROW/2)], "white", 1, 5);
-
-  if (holdPiece) {
-    ctx.globalAlpha = 1;
-    let shiftX = 3.125;
-    let shiftY = 3.25;
-    if (holdPiece == "O" || holdPiece == "I") {
-      shiftX = shiftX + .5;
-    }
-    if (holdPiece == "I") {
-      shiftY = shiftY - .5;
-    }
-    for (let i = 0; i < 4; i++) {
-      ctx.drawImage(tiles, (imagePx + 1) * holdColor, 0, imagePx, imagePx, (leftGrid - boxLength * shiftX) + (rotate[piece[holdPiece]][0][i][0]*boxLength), (topGrid + boxLength * shiftY) - (rotate[piece[holdPiece]][0][i][1]*boxLength), boxLength, boxLength);
-    }
-  }
+  drawLine(ctx, [leftGrid - 2.5, topGrid], [leftGrid - 2.5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
+  drawLine(ctx, [leftGrid - 5, topGrid + (boxLength)*20 + 2.5], [leftGrid + (boxLength)*10 + 5, topGrid + (boxLength)*20 + 2.5], "white", 1, 5);
+  drawLine(ctx, [leftGrid + (boxLength)*10 + 2.5, topGrid + (boxLength)*20 + 2.5], [leftGrid + (boxLength)*10 + 2.5, topGrid], "white", 1, 5);
 }
 
 //on window resize draw grid
@@ -268,7 +233,6 @@ function shuffleOrder() {
     [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
   }
   pieceQueue = pieceQueue.concat(pieces);
-  console.log(pieceQueue);
 }
 
 //Dely Auto Shift
@@ -298,8 +262,6 @@ function moveLeft() {
   if (canMove(currentX - 1, currentY)) {
     currentX--;
     lowestCheck();
-    clearInterval(lockTime);
-    lockTime = null;
     autolockCheck();
   }
   drawGrid();
@@ -309,21 +271,19 @@ function moveRight() {
   if (canMove(currentX + 1, currentY)) {
     currentX++;
     lowestCheck();
-    clearInterval(lockTime);
-    lockTime = null;
     autolockCheck();
   }
   drawGrid();
 }
 
 function autolockCheck() {
-  if (!canMove(currentX, currentY - 1)) {  
+  clearInterval(lockTime);
+  lockTime = null;
+  if (!canMove(currentX, currentY - 1)) {
     clearInterval(dropTime);
     dropTime = null;
     if (lockCount < 15) {
-      if (!lockTime) {
-        lockTimer();
-      }
+      lockTimer();
     }
     else {
       lock();
@@ -417,8 +377,6 @@ function clockwiseRotate() {
   canRotate("clockwise", newState);
   drawGrid();
   lowestCheck();
-  clearInterval(lockTime);
-  lockTime = null;
   autolockCheck();
 }
 
@@ -433,8 +391,6 @@ function counterclockwiseRotate() {
   canRotate("counterclockwise", newState);
   drawGrid();
   lowestCheck();
-  clearInterval(lockTime);
-  lockTime = null;
   autolockCheck();
 }
 
@@ -485,6 +441,7 @@ function softDrop() {
   else {
     dropOne();
     drawGrid();
+    clearInterval(SDFtimer);
     SDFtimer = setInterval(() => {
       dropOne();
       drawGrid();
@@ -506,7 +463,7 @@ function lock() {
   dropTime = null;
   let overGrid = true;
   for (let i = 0; i < 4; i++) {
-    if (currentY + rotate[piece[currentPiece]][currentState][i][1] < GRID_COLUMN/2) {
+    if (currentY + rotate[piece[currentPiece]][currentState][i][1] < 20) {
       overGrid = false;
       break;
     }
@@ -517,10 +474,9 @@ function lock() {
   for (let i = 0; i < 4; i++) {
     grid[currentY + rotate[piece[currentPiece]][currentState][i][1]][currentX + rotate[piece[currentPiece]][currentState][i][0]] = currentColor;
   }
-  getNextPiece = true;
-  
-  holdColor = piece[holdPiece];
-  
+  if (pieceQueue.length == 5) {
+    shuffleOrder();
+  }
   clear();
   nextPiece();
   drawGrid();
@@ -569,46 +525,18 @@ function clear() {
 }
 
 function nextPiece() {
-  if (getNextPiece) {
-    currentPiece = pieceQueue[0];
-    currentColor = piece[pieceQueue[0]] + 1;
-    pieceQueue.shift();
-    if (pieceQueue.length == 5) {
-      shuffleOrder();
-    }
-    canHold = true;
-  }
-  getNextPiece = false;
   currentX = 4;
   currentY = 21;
   currentState = 0;
+  currentPiece = pieceQueue[0];
+  currentColor = piece[pieceQueue[0]] + 1;
   if (!canMove(4, 21)) {
     gameOver();
   }
   lockCount = 0;
   lowestY = 21;
   dropOne();
-}
-
-function hold() {
-  if (canHold) {
-    clearInterval(lockTime);
-    lockTime = null;
-    clearInterval(dropTime);
-    dropTime = null;
-    holdColor = 10;
-    if (holdPiece) {
-      [holdPiece, currentPiece] = [currentPiece, holdPiece];
-      currentColor = piece[currentPiece] + 1;
-    }
-    else {
-      holdPiece = currentPiece;
-      getNextPiece = true;
-    }
-    nextPiece();
-    canHold = false;
-    drawGrid();
-  }
+  pieceQueue.shift();
 }
   
 document.addEventListener('keydown', event => {
@@ -639,9 +567,6 @@ document.addEventListener('keydown', event => {
       break;
     case "ArrowDown":
       softDrop();
-      break;
-    case "ShiftLeft":
-      hold();
       break;
   }
 })
