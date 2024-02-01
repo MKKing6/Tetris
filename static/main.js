@@ -643,6 +643,9 @@ document.addEventListener('keydown', event => {
     case "ShiftLeft":
       hold();
       break;
+    case "KeyC":
+      hold();
+      break;
   }
 })
 
