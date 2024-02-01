@@ -6,9 +6,9 @@ const GRID_COLUMN = 40;
 
 let inGame = false;
 
-let DAStime = 100; 
-let ARRtime = 0;
-let SDFMult = "infinity";
+let DAStime = 150//100; 
+let ARRtime = 10//0;
+let SDFMult = 20//"infinity";
 let dropSpeed = 2000;
 let lockSpeed = 500;
 
