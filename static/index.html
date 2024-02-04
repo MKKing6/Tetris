@@ -6,12 +6,14 @@
   <title>Tetris</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="stylesheet" href="style.css" />
-  <script src="main.js"></script>
+  <script type="module" src="main.js"></script>
 </head>
 
 <body>
   <div id='startScreen' style='display:block'>
-    <button onclick=startGame()>Start Game</button>
+    <button id='start'>Start Game</button>
+    <br><br>
+    <button id='settings'>Settings</button>
 </div>
   <canvas id="grid" style='display:none'></canvas>
 </body>
